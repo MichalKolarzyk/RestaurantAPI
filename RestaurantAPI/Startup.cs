@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RestaurantAPI.Entities;
+using RestaurantAPI.Middleware;
+using RestaurantAPI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,9 +28,16 @@ namespace RestaurantAPI
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddScoped<IRestaurantService, RestaurantService>();
+            services.AddScoped<IDishService, DishService>();
             services.AddDbContext<RestaurantDbContext>();
             services.AddScoped<RestaurantSeeder>();
             services.AddAutoMapper(this.GetType().Assembly);
+            services.AddScoped<ErrorHandlingMiddleware>();
+            services.AddScoped<RequestTimeMiddleware>();
+            services.AddSwaggerGen();
+
+
             services.AddControllersWithViews();
         }
 
@@ -47,9 +56,17 @@ namespace RestaurantAPI
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
+            app.UseMiddleware<ErrorHandlingMiddleware>();
+            app.UseMiddleware<RequestTimeMiddleware>();
+
             app.UseHttpsRedirection();
             app.UseStaticFiles();
-            
+
+            app.UseSwagger();
+            app.UseSwaggerUI(c =>
+            {
+                c.SwaggerEndpoint("/swagger/v1/swagger.json", "Restaurant API");
+            });
 
             app.UseRouting();
 
