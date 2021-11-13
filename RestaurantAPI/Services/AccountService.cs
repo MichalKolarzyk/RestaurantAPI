@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using RestaurantAPI.Entities;
 using RestaurantAPI.Exceptions;
@@ -28,7 +29,7 @@ namespace RestaurantAPI.Services
 
         public string GenerateJwt(LoginDto loginDto)
         {
-            User user =_context.Users.FirstOrDefault(u => u.Email == loginDto.Email);
+            User user =_context.Users.Include(u => u.Role).FirstOrDefault(u => u.Email == loginDto.Email);
             if (user == null)
                 throw new BadRequestException("Invalid username or password");
 
@@ -41,10 +42,12 @@ namespace RestaurantAPI.Services
             {
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, $"{user.FirstName} {user.LastName}"),
-                new Claim(ClaimTypes.Role, $"{user.Role}"),
-                new Claim("DateOfBirth", user.DateOfBirth.Value.ToString("yyyy-mm-dd")),
-                new Claim("Nationality", user.Nationality),
+                new Claim(ClaimTypes.Role, $"{user.Role.Name}"),
+                new Claim("DateOfBirth", user.DateOfBirth.Value.ToString("yyyy-MM-dd")),
             };
+            if (!string.IsNullOrEmpty(user.Nationality))
+                claims.Add(new Claim("Nationality", user.Nationality));
+
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_authenticationSettings.JwtKey));
             var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);

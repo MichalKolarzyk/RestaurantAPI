@@ -5,9 +5,10 @@ using System.Threading.Tasks;
 
 namespace RestaurantAPI.Exceptions
 {
-    public class NotFoundException : Exception
+    public class ForbidException : Exception
     {
-        public NotFoundException(string message) : base(message)
+        public ForbidException() { }
+        public ForbidException(string message) : base(message)
         {
         }
     }
