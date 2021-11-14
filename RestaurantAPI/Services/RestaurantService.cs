@@ -9,6 +9,7 @@ using RestaurantAPI.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Security.Claims;
 using System.Threading.Tasks;
 
@@ -46,15 +47,46 @@ namespace RestaurantAPI.Services
         }
 
 
-        public IEnumerable<RestaurantDto> GetAll()
+        public PagedResult<RestaurantDto> GetAll(RestaurantQuery query)
         {
-            var restaurants = _dbContext
+            if (query.SearchPhrase == null)
+                query.SearchPhrase = string.Empty;
+
+            var baseQuery = _dbContext
                 .Restaurants
                 .Include(r => r.Address)
                 .Include(r => r.Dishes)
+                .Where(r => r.Name.ToLower().Contains(query.SearchPhrase.ToLower())
+                        || r.Description.ToLower().Contains(query.SearchPhrase.ToLower()));
+
+            if (!string.IsNullOrEmpty(query.SortBy))
+            {
+                var columnsSelector = new Dictionary<string, Expression<Func<Restaurant, object>>>
+                {
+                    {nameof(Restaurant.Name), r => r.Name},
+                    {nameof(Restaurant.Description), r => r.Description},
+                    {nameof(Restaurant.Category), r => r.Category},
+                };
+
+                var columnSelector = columnsSelector[query.SortBy];
+
+
+                baseQuery = query.SortDirection == SortDirection.ASC
+                    ? baseQuery.OrderBy(columnSelector)
+                    : baseQuery.OrderByDescending(r => r.Name);
+            }
+
+            var restaurants = baseQuery
+                .Skip(query.PageSize * (query.PageNumber - 1))
+                .Take(query.PageSize)
                 .ToList();
 
-            return _mapper.Map<List<RestaurantDto>>(restaurants);
+            int totalItemsCount = baseQuery.Count();
+            var restaurantDtos = _mapper.Map<List<RestaurantDto>>(restaurants);
+
+            var results = new PagedResult<RestaurantDto>(restaurantDtos, totalItemsCount, query.PageSize, query.PageNumber);
+
+            return results;
         }
 
         public int Create(CreateRestaurantDto createRestaurantDto)

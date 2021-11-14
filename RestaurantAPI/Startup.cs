@@ -60,11 +60,13 @@ namespace RestaurantAPI
             services.AddAuthorization(options =>
             {
                 options.AddPolicy("HasNationality", builder => builder.RequireClaim("Nationality", "German"));
+                options.AddPolicy("AtLeast2Restaurants", builder => builder.AddRequirements(new MinimumRestaurantsCreatedRequirement(2)));
                 options.AddPolicy("AtLeast20", builder => builder.AddRequirements(new MinimumAgeRequirement(20)));
             });
 
             services.AddScoped<IAuthorizationHandler, MinimumAgeRequirementHandler>();
             services.AddScoped<IAuthorizationHandler, ResourceOperationRequirementHandler>();
+            services.AddScoped<IAuthorizationHandler, MinimumRestaurantsCreatedRequirementHandler>();
             services.AddScoped<IRestaurantService, RestaurantService>();
             services.AddScoped<IUserContextService, UserContextService>();
             services.AddScoped<IDishService, DishService>();
@@ -79,16 +81,26 @@ namespace RestaurantAPI
 
             services.AddControllers().AddFluentValidation();
             services.AddScoped<IValidator<RegisterUserDto>, RegisterUserDtoValidator>();
+            services.AddScoped<IValidator<RestaurantQuery>, RestaurantQueryValidator>();
 
             services.AddSwaggerGen();
 
             services.AddHttpContextAccessor();
             services.AddControllersWithViews();
+            services.AddCors(options =>
+            {
+                options.AddPolicy("FrontEndClient", builder =>
+                builder.AllowAnyMethod()
+                .AllowAnyHeader()
+                .WithOrigins(Configuration["AllowedOrigins"]));
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env, RestaurantSeeder seeder)
         {
+            app.UseStaticFiles();
+            app.UseCors("FrontEndClient");
             seeder.Seed();
 
             if (env.IsDevelopment())
